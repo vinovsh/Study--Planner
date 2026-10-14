@@ -1,0 +1,31 @@
+name: Inspect Android screen check
+on:
+  push:
+    branches: [study-planer]
+    paths: [.github/workflows/inspect.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Android-screen-checks
+          run-id: '38614017557'
+          github-token: ${{ github.token }}
+          path: report
+      - name: Read UI and runtime errors
+        run: |
+          python3 - <<'PY'
+          import pathlib,xml.etree.ElementTree as E,re
+          root=E.parse('report/latest-ui.xml')
+          for n in root.iter('node'):
+            if n.get('text') or n.get('content-desc'):
+              print({k:n.get(k) for k in ['text','content-desc','bounds','checked','clickable']})
+          logs=pathlib.Path('report/logcat.txt').read_text()
+          for l in logs.splitlines():
+            if re.search('FATAL EXCEPTION|JavascriptException|ReactNativeJS|com.studybloom.*Exception',l):
+              print(l)
+          PY
