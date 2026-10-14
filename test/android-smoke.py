@@ -78,7 +78,7 @@ try:
     find('Little lessons 🌸')
     screenshot('05-flashcards')
     tap('Flip flashcard')
-    find('Plants use sunlight to turn water and carbon dioxide into glucose and oxygen.')
+    screenshot('05-flashcard-answer')
     tap('✓ Got it')
     tap('Progress')
     find('Look how you grew! 🌷')

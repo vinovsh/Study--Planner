@@ -34,6 +34,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test offline planner logic
         run: npm test
+      - name: Check React Native JSX
+        run: node -e "require('@babel/core').transformFileSync('App.js'); require('@babel/core').transformFileSync('src/art.js')"
       - name: Install Android SDK
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;26.1.10909125'
       - uses: actions/cache@v4
