@@ -35,7 +35,7 @@ jobs:
       - name: Test offline planner logic
         run: npm test
       - name: Check React Native JSX
-        run: node -e "require('@babel/core').transformFileSync('App.js'); require('@babel/core').transformFileSync('src/art.js')"
+        run: node -e "const babel=require('@babel/core'); babel.transformFileSync('App.js'); for (const f of require('fs').readdirSync('src').filter(f=>f.endsWith('.js'))) babel.transformFileSync('src/'+f)"
       - name: Install Android SDK
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;26.1.10909125'
       - uses: actions/cache@v4
@@ -47,6 +47,11 @@ jobs:
           if [ ! -f android/app/debug.keystore ]; then
             keytool -genkeypair -v -keystore android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname 'CN=Study Bloom Development,O=Study Bloom,C=US' -keyalg RSA -keysize 2048 -validity 10000
           fi
+      - name: Keep signing key for subsequent APK updates
+        uses: actions/cache/save@v4
+        with:
+          path: android/app/debug.keystore
+          key: study-bloom-sideload-key-v1
       - name: Build standalone APK
         working-directory: android
         run: gradle assembleRelease --no-daemon --stacktrace
@@ -72,7 +77,7 @@ jobs:
       - name: Enable hardware acceleration
         run: |
           sudo chmod 666 /dev/kvm
-      - name: Check screens and persistence offline
+      - name: Check interactive hero offline
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -80,7 +85,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: python3 test/android-smoke.py
+          script: python3 test/hero-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

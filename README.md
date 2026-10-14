@@ -2,6 +2,10 @@
 
 A fully offline Android study planner built with **React Native CLI**, matching the lavender, cream, flower, and sleepy-cat storyboard. Development branch: **study-planer**.
 
+### 1.1.0 — Interactive reference hero
+
+The home hero now places a curled sleeping cat above a short lavender message banner, framed by illustrated flowers. Tap the hero for encouragement and floating hearts; hold it to open Focus. Native-driven breathing, flower sway, and spring press feedback pause while the app is in the background and respect Android's reduced-motion setting. Framer Motion is a web animation library; this native app uses React Native Animated instead. All illustration and animation assets remain offline.
+
 ## Included
 
 - Today dashboard, daily completion, and editable weekly sessions
