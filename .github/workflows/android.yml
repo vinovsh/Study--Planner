@@ -24,6 +24,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
@@ -64,3 +67,20 @@ jobs:
         with:
           name: dependency-lock
           path: package-lock.json
+      - name: Enable hardware acceleration
+        run: |
+          sudo chmod 666 /dev/kvm
+      - name: Check screens and persistence offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 test/android-smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-screen-checks
+          path: smoke-results/
