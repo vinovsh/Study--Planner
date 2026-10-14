@@ -1,0 +1,8 @@
+node_modules/
+.gradle/
+**/build/
+android/local.properties
+*.keystore
+*.apk
+*.zip
+.DS_Store

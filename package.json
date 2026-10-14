@@ -1,0 +1,26 @@
+{
+  "name": "study-bloom",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "test": "node --test test/*.test.js",
+    "apk": "cd android && gradle assembleRelease"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-native": "0.76.9",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "react-native-svg": "15.11.2"
+  },
+  "devDependencies": {
+    "@babel/core": "7.26.10",
+    "@babel/runtime": "7.26.10",
+    "@react-native/babel-preset": "0.76.9",
+    "@react-native/metro-config": "0.76.9",
+    "@react-native-community/cli": "15.0.1",
+    "@react-native-community/cli-platform-android": "15.0.1"
+  },
+  "engines": { "node": ">=18" }
+}
