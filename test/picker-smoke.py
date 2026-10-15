@@ -6,22 +6,23 @@ def nodes():
     adb('shell','uiautomator','dump','/sdcard/picker-ui.xml')
     xml=adb('shell','cat','/sdcard/picker-ui.xml');(out/'picker-ui.xml').write_text(xml)
     return list(ET.fromstring(xml).iter('node'))
-def find(value,by_id=False,timeout=15):
+def find(value,by_id=False,timeout=15,edit=False):
     end=time.time()+timeout
     while time.time()<end:
         for n in nodes():
+            if edit and n.get('class')!='android.widget.EditText':continue
             match=n.get('resource-id')==value if by_id else value in (n.get('text'),n.get('content-desc'))
             if match:
                 b=list(map(int,re.findall(r'-?\d+',n.get('bounds',''))))
                 if len(b)==4 and b[2]>b[0] and b[3]>b[1]:return b
         time.sleep(.4)
     raise AssertionError('Picker UI not found: '+value)
-def tap(value,by_id=False):
-    x1,y1,x2,y2=find(value,by_id);adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(.6)
+def tap(value,by_id=False,edit=False):
+    x1,y1,x2,y2=find(value,by_id,edit=edit);adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(.6)
 def screenshot(name):
     with (out/(name+'.png')).open('wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
 def input_text(value,text,by_id=False):
-    tap(value,by_id);adb('shell','input','keyevent','123')
+    tap(value,by_id,edit=True);adb('shell','input','keyevent','123')
     for _ in range(5):adb('shell','input','keyevent','67')
     adb('shell','input','text',text.replace(' ','%s'))
 def hide_keyboard():
@@ -40,6 +41,7 @@ try:
     adb('shell','am','force-stop','com.studybloom');adb('logcat','-c')
     adb('shell','am','start','-n','com.studybloom/.MainActivity');time.sleep(2)
     tap('Planner');tap('Add');input_text('Title','Picker practice');hide_keyboard()
+    find('Picker practice',edit=True)
     find('New session')
     tap('Choose date');find('android:id/datePicker',True);screenshot('05-calendar-picker')
     tap('android:id/button2',True);find('Choose date')
