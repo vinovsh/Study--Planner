@@ -95,7 +95,7 @@ export default function BloomHero({dark=false,onFocus,onPet,celebration=0}) {
       {perspective:700},{translateY:Animated.add(breathe.interpolate({inputRange:[0,1],outputRange:[0,-3]}),hop.interpolate({inputRange:[0,1],outputRange:[0,-15]}))},
       {rotateX:tiltX.interpolate({inputRange:[-1,1],outputRange:['4deg','-4deg']})},{rotateY:tiltY.interpolate({inputRange:[-1,1],outputRange:['-7deg','7deg']})},
       {rotate:sway.interpolate({inputRange:[0,1],outputRange:['-.8deg','.8deg']})},{scale:press},
-    ]}]}><Image source={BOOKWORM} resizeMode="contain" style={StyleSheet.absoluteFill} accessible={false}/></Animated.View>
+    ]}]}><Image source={BOOKWORM} resizeMode="contain" style={{width:catWidth,height:catHeight}} accessible accessibilityLabel="Happy Bookworm mascot" testID="happy-bookworm-image"/></Animated.View>
     <View pointerEvents="none" style={styles.quote}><Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.2} style={[styles.quoteText,{color:dark?'#F0E2FF':'#59426D'}]}>{messages[quote]}</Text></View>
     <View pointerEvents="none" importantForAccessibility="no-hide-descendants" style={[styles.sparkle,{left:width*.16,top:height*.19}]}><Text style={styles.star}>✧</Text></View>
     <View pointerEvents="none" importantForAccessibility="no-hide-descendants" style={[styles.sparkle,{right:width*.15,top:height*.13}]}><Text style={styles.star}>✦</Text></View>
@@ -110,7 +110,7 @@ const styles=StyleSheet.create({
   garden:{position:'absolute',width:86,height:224},
   banner:{position:'absolute',height:84,bottom:6,left:12,right:12,borderWidth:1,borderRadius:29,elevation:3,shadowColor:'#A583AD',shadowOffset:{width:0,height:5},shadowOpacity:.18,shadowRadius:10},
   bannerHighlight:{position:'absolute',top:2,left:7,right:7,height:12,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:'#FFFFFF',opacity:.13},
-  cat:{position:'absolute',top:-3,elevation:4},quote:{position:'absolute',bottom:28,left:44,right:44,alignItems:'center',elevation:5},
+  cat:{position:'absolute',top:-3,elevation:4,overflow:'hidden'},quote:{position:'absolute',bottom:28,left:44,right:44,alignItems:'center',elevation:5},
   quoteText:{fontSize:19,lineHeight:25,fontWeight:'700',textAlign:'center',letterSpacing:.1},
   play:{position:'absolute',alignSelf:'center',bottom:-7,paddingHorizontal:15,minHeight:31,alignItems:'center',justifyContent:'center',borderWidth:1,borderRadius:17,elevation:6},
   sparkle:{position:'absolute'},star:{color:'#E5B65F',fontSize:19},hearts:{position:'absolute',top:26,left:0,right:0,alignItems:'center'},heart:{color:'#E997AA',fontSize:23,letterSpacing:8},

@@ -2,6 +2,10 @@
 
 A fully offline Android study planner built with **React Native CLI**, matching the lavender, cream, flower, and sleepy-cat storyboard. Development branch: **study-planer**.
 
+### 1.2.1 — Mascot image sizing fix
+
+Fixes the hero image rendering at its original bitmap dimensions on Android. The mascot now has explicit rendered width and height inside a clipped frame. Native screenshot checks verify its bounds and that its artwork stays inside the hero at standard and compact phone sizes.
+
 ### 1.2.0 — Approved Happy Bookworm design and native pickers
 
 - Replaces the sleeping home mascot with the approved cheerful plush calico hugging a lavender book; the installed app icon uses Happy Bookworm too.
