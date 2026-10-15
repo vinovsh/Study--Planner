@@ -1,6 +1,9 @@
 package com.studybloom
 
 import android.app.Activity
+import android.app.Dialog
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -15,6 +18,9 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.*
 import com.facebook.react.uimanager.ViewManager
 import org.json.JSONObject
+import java.util.Calendar
+import java.util.Locale
+import java.text.SimpleDateFormat
 
 class BloomPackage : ReactPackage {
   override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> = listOf(BloomDevice(context))
@@ -24,8 +30,58 @@ class BloomPackage : ReactPackage {
 class BloomDevice(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context), ActivityEventListener {
   private var pending: Promise? = null
   private var payload: String? = null
+  private var picker: Dialog? = null
   init { context.addActivityEventListener(this) }
   override fun getName() = "BloomDevice"
+  private fun launchPicker(promise: Promise, create: (Activity, (Any?) -> Unit) -> Dialog) {
+    UiThreadUtil.runOnUiThread {
+      val activity = currentActivity
+      if (activity == null || activity.isFinishing) { promise.reject("NO_ACTIVITY", "Open the app first"); return@runOnUiThread }
+      if (picker?.isShowing == true) { promise.reject("BUSY", "A picker is already open"); return@runOnUiThread }
+      var settled = false
+      val finish: (Any?) -> Unit = { result -> if (!settled) { settled = true; promise.resolve(result) } }
+      try {
+        val dialog = create(activity, finish)
+        picker = dialog
+        dialog.setOnCancelListener { finish(null) }
+        dialog.setOnDismissListener { finish(null); picker = null }
+        dialog.show()
+      } catch (e: Exception) {
+        picker = null
+        if (!settled) { settled = true; promise.reject("PICKER", "Could not open picker", e) }
+      }
+    }
+  }
+  @ReactMethod fun pickDate(value: String, promise: Promise) {
+    launchPicker(promise) { activity, finish ->
+      val initial = Calendar.getInstance()
+      try {
+        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        if (value.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) parser.parse(value)?.let { initial.time = it }
+      } catch (_: Exception) { /* Invalid values fall back to today. */ }
+      DatePickerDialog(activity, R.style.BloomPickerTheme, { _, year, month, day ->
+        finish(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day))
+      }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH))
+    }
+  }
+  @ReactMethod fun pickTime(value: String, promise: Promise) {
+    launchPicker(promise) { activity, finish ->
+      val parts = value.split(":")
+      val hour = (parts.getOrNull(0)?.toIntOrNull() ?: 9).coerceIn(0, 23)
+      val minute = (parts.getOrNull(1)?.toIntOrNull() ?: 0).coerceIn(0, 59)
+      TimePickerDialog(activity, R.style.BloomClockTheme, { _, h, m ->
+        finish(String.format(Locale.US, "%02d:%02d", h, m))
+      }, hour, minute, true).apply { setTitle("Start time") }
+    }
+  }
+  @ReactMethod fun pickDuration(minutes: Double, promise: Promise) {
+    launchPicker(promise) { activity, finish ->
+      val initial = minutes.toInt().coerceIn(5, 240)
+      TimePickerDialog(activity, R.style.BloomClockTheme, { _, h, m ->
+        finish(h * 60 + m)
+      }, initial / 60, initial % 60, true).apply { setTitle("Study duration · hours : minutes") }
+    }
+  }
   @ReactMethod fun scheduleReminder(id: String, title: String, body: String, timestamp: Double, promise: Promise) {
     try {
       Reminders.schedule(context, id, title, body, timestamp.toLong())

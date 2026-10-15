@@ -40,7 +40,7 @@ try:
     find('Hi, study buddy!')
     find('Pet your study buddy')
     screenshot('01-reference-hero')
-    tap('Pet your study buddy')
+    tap('Tap to play')
     # A persistent quote change confirms onPress without racing a short toast.
     find('You’re doing great!')
     screenshot('02-hero-encouragement')

@@ -2,6 +2,14 @@
 
 A fully offline Android study planner built with **React Native CLI**, matching the lavender, cream, flower, and sleepy-cat storyboard. Development branch: **study-planer**.
 
+### 1.2.0 — Approved Happy Bookworm design and native pickers
+
+- Replaces the sleeping home mascot with the approved cheerful plush calico hugging a lavender book; the installed app icon uses Happy Bookworm too.
+- Matches the approved cream/lavender home layout, compact progress card, subject rows, and visible **Tap to play** button. Real saved progress is preserved.
+- Pet to bounce and release hearts, drag gently to tilt the layered character, tap its book for a reading cheer, hold to open Focus, and complete a session to celebrate. Motion runs natively, pauses in the background, and respects reduced-motion settings. This is a layered 2.5D presentation, not a 3D engine.
+- Date fields open the native Android calendar. Start time opens a single analog clock with hours and minutes. Duration opens an hours-and-minutes clock and retains the existing 5-minute to 4-hour session limits. Cancel leaves the previous value untouched.
+- All artwork is bundled; no network or account is needed. Existing planner records and backups keep their original schema.
+
 ### 1.1.0 — Interactive reference hero
 
 The home hero now places a curled sleeping cat above a short lavender message banner, framed by illustrated flowers. Tap the hero for encouragement and floating hearts; hold it to open Focus. Native-driven breathing, flower sway, and spring press feedback pause while the app is in the background and respect Android's reduced-motion setting. Framer Motion is a web animation library; this native app uses React Native Animated instead. All illustration and animation assets remain offline.

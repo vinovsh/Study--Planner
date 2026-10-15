@@ -7,4 +7,13 @@
     <item name="android:fontFamily">sans</item>
     <item name="android:colorAccent">#A18AD4</item>
   </style>
+  <style name="BloomPickerTheme" parent="android:style/Theme.Material.Light.Dialog.Alert">
+    <item name="android:colorAccent">#A18AD4</item>
+  </style>
+  <style name="BloomClockTheme" parent="BloomPickerTheme">
+    <item name="android:timePickerStyle">@style/BloomClock</item>
+  </style>
+  <style name="BloomClock" parent="android:style/Widget.Material.Light.TimePicker">
+    <item name="android:timePickerMode">clock</item>
+  </style>
 </resources>
