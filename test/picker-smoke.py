@@ -25,10 +25,9 @@ def input_text(value,text,by_id=False):
     for _ in range(5):adb('shell','input','keyevent','67')
     adb('shell','input','text',text.replace(' ','%s'))
 def hide_keyboard():
-    # Emulators can have a hardware keyboard: Back would close the editor/dialog.
-    state=adb('shell','dumpsys','input_method')
-    if 'mIsInputViewShown=true' in state or ('mIsInputViewShown' not in state and 'mImeWindowVis=0x3' in state):
-        adb('shell','input','keyevent','4');time.sleep(.5)
+    # Keep the hardware keyboard for automation. Never send Back into a modal.
+    # The real date/time fields dismiss the keyboard themselves on press.
+    time.sleep(.3)
 def set_clock(hour,minute):
     find('android:id/radial_picker',True)
     # Start in clock mode, then use Android's built-in keyboard toggle for exact test values.
@@ -37,6 +36,7 @@ def set_clock(hour,minute):
     input_text('android:id/input_minute',minute,True)
     hide_keyboard();tap('android:id/button1',True)
 try:
+    adb('shell','settings','put','secure','show_ime_with_hard_keyboard','0')
     adb('shell','am','force-stop','com.studybloom');adb('logcat','-c')
     adb('shell','am','start','-n','com.studybloom/.MainActivity');time.sleep(2)
     tap('Planner');tap('Add');input_text('Title','Picker practice');hide_keyboard()
