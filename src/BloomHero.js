@@ -85,10 +85,10 @@ export default function BloomHero({dark=false,onFocus,onPet,celebration=0}) {
   const catHeight=height-72;
   const catWidth=catHeight*1.03;
   return <View onLayout={e=>setWidth(e.nativeEvent.layout.width)} style={[styles.space,{height}]}>
-    <View style={[styles.glow,{top:4,height:catHeight,backgroundColor:dark?'#392E47':'#FFF2E1'}]}/>
+    <View pointerEvents="none" style={[styles.glow,{top:4,height:catHeight,backgroundColor:dark?'#392E47':'#FFF2E1'}]}/>
     <Animated.View style={[styles.garden,{left:-8,top:height-235,transform:[{rotate:sway.interpolate({inputRange:[0,1],outputRange:['-2deg','2deg']})}]}]} pointerEvents="none" importantForAccessibility="no-hide-descendants"><Garden side="left"/></Animated.View>
     <Animated.View style={[styles.garden,{right:-8,top:height-235,transform:[{rotate:sway.interpolate({inputRange:[0,1],outputRange:['2deg','-2deg']})}]}]} pointerEvents="none" importantForAccessibility="no-hide-descendants"><Garden side="right"/></Animated.View>
-    <View style={[styles.banner,{backgroundColor:dark?'#4D3A65':'#E1CFF2',borderColor:dark?'#69517F':'#D3BDEB'}]}>
+    <View pointerEvents="none" style={[styles.banner,{backgroundColor:dark?'#4D3A65':'#E1CFF2',borderColor:dark?'#69517F':'#D3BDEB'}]}>
       <View style={styles.bannerHighlight}/>
     </View>
     <Animated.View pointerEvents="none" style={[styles.cat,{left:(width-catWidth)/2,width:catWidth,height:catHeight,transform:[
@@ -110,8 +110,8 @@ const styles=StyleSheet.create({
   garden:{position:'absolute',width:86,height:224},
   banner:{position:'absolute',height:84,bottom:6,left:12,right:12,borderWidth:1,borderRadius:29,elevation:3,shadowColor:'#A583AD',shadowOffset:{width:0,height:5},shadowOpacity:.18,shadowRadius:10},
   bannerHighlight:{position:'absolute',top:2,left:7,right:7,height:12,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:'#FFFFFF',opacity:.13},
-  cat:{position:'absolute',top:-3},quote:{position:'absolute',bottom:28,left:44,right:44,alignItems:'center'},
+  cat:{position:'absolute',top:-3,elevation:4},quote:{position:'absolute',bottom:28,left:44,right:44,alignItems:'center',elevation:5},
   quoteText:{fontSize:19,lineHeight:25,fontWeight:'700',textAlign:'center',letterSpacing:.1},
-  play:{position:'absolute',alignSelf:'center',bottom:-7,paddingHorizontal:15,minHeight:31,alignItems:'center',justifyContent:'center',borderWidth:1,borderRadius:17,elevation:3},
+  play:{position:'absolute',alignSelf:'center',bottom:-7,paddingHorizontal:15,minHeight:31,alignItems:'center',justifyContent:'center',borderWidth:1,borderRadius:17,elevation:6},
   sparkle:{position:'absolute'},star:{color:'#E5B65F',fontSize:19},hearts:{position:'absolute',top:26,left:0,right:0,alignItems:'center'},heart:{color:'#E997AA',fontSize:23,letterSpacing:8},
 });

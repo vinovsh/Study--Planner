@@ -24,17 +24,23 @@ def input_text(value,text,by_id=False):
     tap(value,by_id);adb('shell','input','keyevent','123')
     for _ in range(5):adb('shell','input','keyevent','67')
     adb('shell','input','text',text.replace(' ','%s'))
+def hide_keyboard():
+    # Emulators can have a hardware keyboard: Back would close the editor/dialog.
+    state=adb('shell','dumpsys','input_method')
+    if 'mIsInputViewShown=true' in state or ('mIsInputViewShown' not in state and 'mImeWindowVis=0x3' in state):
+        adb('shell','input','keyevent','4');time.sleep(.5)
 def set_clock(hour,minute):
     find('android:id/radial_picker',True)
     # Start in clock mode, then use Android's built-in keyboard toggle for exact test values.
     tap('android:id/toggle_mode',True)
     input_text('android:id/input_hour',hour,True)
     input_text('android:id/input_minute',minute,True)
-    adb('shell','input','keyevent','4');tap('android:id/button1',True)
+    hide_keyboard();tap('android:id/button1',True)
 try:
     adb('shell','am','force-stop','com.studybloom');adb('logcat','-c')
     adb('shell','am','start','-n','com.studybloom/.MainActivity');time.sleep(2)
-    tap('Planner');tap('Add');input_text('Title','Picker practice');adb('shell','input','keyevent','4')
+    tap('Planner');tap('Add');input_text('Title','Picker practice');hide_keyboard()
+    find('New session')
     tap('Choose date');find('android:id/datePicker',True);screenshot('05-calendar-picker')
     tap('android:id/button2',True);find('Choose date')
     tap('Choose date');tap('android:id/button1',True)
@@ -50,4 +56,6 @@ try:
     (out/'picker-result.txt').write_text('PASS: native date picker, cancel, hour/minute clock, duration clock, and saved/reloaded session values.\n')
     print('Native picker checks passed')
 except Exception:
-    screenshot('picker-failure');(out/'picker-logcat.txt').write_text(adb('logcat','-d'));raise
+    screenshot('picker-failure');(out/'picker-logcat.txt').write_text(adb('logcat','-d'))
+    if (out/'picker-ui.xml').exists():print((out/'picker-ui.xml').read_text())
+    raise
