@@ -2,6 +2,10 @@
 
 A fully offline Android study planner built with **React Native CLI**, matching the lavender, cream, flower, and sleepy-cat storyboard. Development branch: **study-planer**.
 
+### Expanded subject choices
+
+The subject editor keeps five quick colors and three quick icons, with a **More** button at the end of each section. Separate scrollable popups offer 20 colors and 24 subject icons. Picking an option returns to the editor and shows the chosen option there; dismissing a popup preserves the draft. Both light and dark themes are supported, and all choices work offline.
+
 ### 1.2.1 — Mascot image sizing fix
 
 Fixes the hero image rendering at its original bitmap dimensions on Android. The mascot now has explicit rendered width and height inside a clipped frame. Native screenshot checks verify its bounds and that its artwork stays inside the hero at standard and compact phone sizes.
@@ -68,3 +72,4 @@ Backups replace the current planner after confirmation and are validated before 
 ## Validation
 
 `npm test` covers date/time validation, month-boundary spaced repetition, week boundaries, deadline timers, streaks, and backup validation. CI builds the actual native APK, verifies its signature, and checks that the merged APK requests no INTERNET permission. Device UI validation is separate from build validation.
+
