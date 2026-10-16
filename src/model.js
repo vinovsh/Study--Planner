@@ -1,4 +1,4 @@
-const COLORS = ['#DFF0CF', '#FFDDE4', '#FFF0BE', '#E5DCF8', '#D5EAF2'];
+const {COLORS, SUBJECT_ICONS} = require('./subjectOptions');
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 function dateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -52,7 +52,7 @@ function validateBackup(value) {
   }
   const text = v => typeof v === 'string' && v.length <= 20000;
   const subjects = new Set(value.subjects.map(s => s.id));
-  for (const s of value.subjects) if (!text(s.name) || !s.name.trim() || !COLORS.includes(s.color) || !['leaf','calculator','book'].includes(s.icon)) fail();
+  for (const s of value.subjects) if (!text(s.name) || !s.name.trim() || !COLORS.includes(s.color) || !SUBJECT_ICONS.some(option=>option.value===s.icon)) fail();
   for (const key of ['sessions', 'tasks', 'cards', 'notes', 'exams']) for (const x of value[key]) {
     if (!subjects.has(x.subjectId)) fail();
     if (key === 'sessions' && (!text(x.title) || !validDate(x.date) || !validTime(x.time) || !Number.isFinite(x.duration) || x.duration < 5 || x.duration > 240 || typeof x.done !== 'boolean')) fail();

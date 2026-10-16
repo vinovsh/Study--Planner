@@ -28,3 +28,16 @@ test('backup validates relations and strips timer', () => {
   assert.throws(() => m.validateBackup({...state, cards:[{...state.cards[0], question:42}]}));
   assert.throws(() => m.validateBackup({...state, settings:{...state.settings,focus:-1}}));
 });
+test('all subject styles survive JSON backup restore, including original styles', () => {
+  const {SUBJECT_COLORS,SUBJECT_ICONS,SUBJECT_ICON_PATHS}=require('../src/subjectOptions');
+  const state=m.initialState();
+  for (const color of SUBJECT_COLORS) for (const icon of SUBJECT_ICONS) {
+    state.subjects[0]={...state.subjects[0],color:color.value,icon:icon.value};
+    const restored=m.validateBackup(JSON.parse(JSON.stringify(state)));
+    assert.equal(restored.subjects[0].color,color.value);
+    assert.equal(restored.subjects[0].icon,icon.value);
+    if(!['leaf','calculator','book'].includes(icon.value))assert.ok(SUBJECT_ICON_PATHS[icon.value]);
+  }
+  assert.throws(()=>m.validateBackup({...state,subjects:[{...state.subjects[0],icon:'missing'}]}));
+  assert.throws(()=>m.validateBackup({...state,subjects:[{...state.subjects[0],color:'#000000'}]}));
+});

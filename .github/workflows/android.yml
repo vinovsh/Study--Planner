@@ -83,7 +83,7 @@ jobs:
           python-version: '3.12'
       - name: Install screenshot analysis dependency
         run: python -m pip install Pillow
-      - name: Check happy hero and native pickers offline
+      - name: Check hero, native pickers, and subject styles offline
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -95,6 +95,7 @@ jobs:
             python3 test/hero-layout.py
             python3 test/hero-smoke.py
             python3 test/picker-smoke.py
+            python3 test/appearance-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

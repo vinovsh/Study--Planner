@@ -1,7 +1,9 @@
 import React from 'react';
 import Svg, {Path, Circle, Ellipse, G} from 'react-native-svg';
 
+const {SUBJECT_ICON_PATHS} = require('./subjectOptions');
 const paths = {
+  ...SUBJECT_ICON_PATHS,
   home: 'M3 11 12 3l9 8M5 10v11h5v-6h4v6h5V10',
   calendar: 'M5 5h14v16H5zM5 10h14M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2',
   timer: 'M9 2h6M12 5v2M18 6l2 2M12 10v5l3 2 M20 15a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
@@ -9,25 +11,6 @@ const paths = {
   book: 'M12 5C8 3 4 3 2 5v15c4-2 7-2 10 0 3-2 6-2 10 0V5c-4-2-7-2-10 0v15',
   leaf: 'M5 19C1 7 11 3 21 3c0 11-5 17-13 14M5 21 16 9M10 15v-5M10 15h5',
   calculator: 'M5 3h14v18H5zM8 6h8v4H8zM8 14h1M15 14h1M8 17h1M15 17h1',
-  pencil: 'm4 16-1 5 5-1L21 7l-4-4zM14 6l4 4',
-  flask: 'M9 3h6M10 3v7L4 20q0 1 2 1h12q2 0 2-1l-6-10V3M7 15h10',
-  atom: 'M12 3c6 0 6 18 0 18s-6-18 0-18M4 7c3-5 19 4 16 10S1 12 4 7M4 17C1 12 17 2 20 7S7 22 4 17',
-  globe: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18M12 3c-6 6-6 12 0 18 6-6 6-12 0-18',
-  music: 'M9 18V5l11-2v13M9 9l11-2M9 18c0 4-6 4-6 1s6-4 6-1M20 16c0 4-6 4-6 1s6-4 6-1',
-  palette: 'M21 12c0-6-6-10-12-8S1 13 5 18s9 4 9 1-3-4 1-5 6 2 6-2M7 9h.1M11 6h.1M16 7h.1M6 13h.1',
-  code: 'm8 6-6 6 6 6M16 6l6 6-6 6M14 4l-4 16',
-  language: 'M3 5h12M9 2v3M5 5c1 6 4 8 8 10M13 5c-1 6-4 8-10 11M14 21l4-11 4 11M16 17h4',
-  history: 'M3 10a9 9 0 1 1 1 8M3 4v6h6M12 7v6l4 2',
-  geometry: 'M12 3 2 21h20zM7 21v-5h5v5',
-  microscope: 'm9 3 4 2-4 8-4-2zM10 12c9-5 13 8 3 8M4 21h16M7 17v4M9 4l1-2 4 2-1 2',
-  computer: 'M3 4h18v13H3zM8 21h8M12 17v4',
-  brain: 'M12 5c-4-5-9 0-6 4-5 2-3 8 0 8-1 5 6 6 6 1V5c4-5 9 0 6 4 5 2 3 8 0 8 1 5-6 6-6 1M6 9l3 2M18 9l-3 2M6 17l3-2M18 17l-3-2',
-  graduation: 'm2 8 10-5 10 5-10 5zM6 10v7q6 5 12 0v-7M22 8v9',
-  ruler: 'm3 16 13-13 5 5L8 21zM12 7l3 3M8 11l3 3M4 15l3 3',
-  compass: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M16 8l-3 5-5 3 3-5z',
-  trophy: 'M7 3h10v7a5 5 0 0 1-10 0zM7 5H3v3q0 4 5 4M17 5h4v3q0 4-5 4M12 15v6M8 21h8',
-  heart: 'M12 21 3 12C-2 5 7 0 12 7c5-7 14-2 9 5z',
-  star: 'm12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',
   plus: 'M12 5v14M5 12h14', chevron: 'm9 5 7 7-7 7', back: 'm15 5-7 7 7 7',
   check: 'm5 12 4 4L19 6', close: 'm6 6 12 12M6 18 18 6',
   settings: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2',
@@ -62,4 +45,3 @@ export function CatGarden({width=260,height=125}) {
     <Flower x={26} y={116} scale={.6} color="#C5B3E4"/><Flower x={258} y={114} scale={.7} color="#C5B3E4"/>
   </Svg>;
 }
-
