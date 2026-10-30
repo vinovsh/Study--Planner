@@ -85,3 +85,10 @@ test('daily nudges have stable IDs, clock times and opt-out semantics',()=>{
   const records=p.reminderRecords(data);assert.deepEqual(records.filter(r=>r.daily).map(r=>[r.id,r.hour,r.minute]),[['daily-plan',7,30],['daily-recap',20,45]]);
   data.settings.reminders=false;assert.deepEqual(p.reminderRecords(data),[]);
 });
+test('accent buttons maintain at least 4.5:1 contrast for their white text',()=>{
+  for(const color of Object.values(h.ACCENTS)){
+    const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+    const luminance=rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
+    assert.ok(1.05/(luminance+.05)>=4.5,`${color} needs more contrast`);
+  }
+});

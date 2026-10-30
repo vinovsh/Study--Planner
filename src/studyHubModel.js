@@ -1,6 +1,6 @@
 const {uid,dateKey,validDate,validTime}=require('./model');
 const {shiftDate,hasSessionConflict}=require('./planning');
-const ACCENTS={Lavender:'#A18AD4',Indigo:'#4E61C9',Rose:'#BA527C',Teal:'#327F78',Sky:'#287BAD',Amber:'#936217'};
+const ACCENTS={Lavender:'#8063B4',Indigo:'#4E61C9',Rose:'#BA527C',Teal:'#327F78',Sky:'#287BAD',Amber:'#936217'};
 const STATUS=['Not started','Learning','Completed','Revised'];
 const EXTRAS=['chapters','formulas','questions','attempts','grades'];
 function examSubjects(exam){return exam.subjectIds?.length?exam.subjectIds:[exam.subjectId];}

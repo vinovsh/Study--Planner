@@ -8,12 +8,15 @@ def nodes():
     return list(ET.fromstring(xml).iter('node'))
 def bounds(n):return list(map(int,re.findall(r'-?\d+',n.get('bounds',''))))
 def find(label,scroll=False,edit=False):
+    _,screen_height=map(int,re.findall(r'\d+',adb('shell','wm','size'))[-2:])
     for attempt in range(9 if scroll else 3):
         for n in nodes():
             if edit and n.get('class')!='android.widget.EditText':continue
             if label in (n.get('text'),n.get('content-desc')):
                 b=bounds(n)
-                if len(b)==4 and b[2]>b[0] and b[3]>b[1]:return n
+                if len(b)==4 and b[2]>b[0] and b[3]>b[1]:
+                    if n.get('class') in ('android.widget.Button','android.widget.RadioButton','android.widget.EditText') and b[3]-b[1]<screen_height*.045:continue
+                    return n
         if scroll:
             w,h=map(int,re.findall(r'\d+',adb('shell','wm','size'))[-2:]);adb('shell','input','swipe',str(w//2),str(int(h*.75)),str(w//2),str(int(h*.35)),'400')
         time.sleep(.5)
