@@ -3,7 +3,7 @@ on:
   push:
     branches: [study-planer]
   pull_request:
-    branches: [main]
+    branches: [main, study-planer]
   workflow_dispatch:
 permissions:
   contents: read
@@ -96,6 +96,7 @@ jobs:
             python3 test/hero-smoke.py
             python3 test/picker-smoke.py
             python3 test/appearance-smoke.py
+            python3 test/study-hub-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

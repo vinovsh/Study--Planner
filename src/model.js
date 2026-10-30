@@ -11,12 +11,12 @@ function validDate(value) {
 const validTime = value => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 function initialState() {
   const today = dateKey();
-  return {version: 1, settings: {name: 'study buddy', goal: 10, focus: 25, break: 5, dark: false},
+  return require('./studyHubModel').normalizeHub({version: 1, settings: {name: 'study buddy', goal: 10, focus: 25, break: 5, dark: false},
     subjects: [{id: 'bio', name: 'Biology', color: COLORS[0], icon: 'leaf'}, {id: 'math', name: 'Math', color: COLORS[1], icon: 'calculator'}, {id: 'lit', name: 'Literature', color: COLORS[2], icon: 'book'}],
     sessions: [{id: 's1', subjectId: 'bio', title: 'Read Chapter 4', date: today, time: '09:00', duration: 60, done: false}, {id: 's2', subjectId: 'math', title: 'Practice problems', date: today, time: '11:00', duration: 45, done: false}, {id: 's3', subjectId: 'lit', title: 'Review notes', date: today, time: '14:00', duration: 30, done: false}],
     tasks: [{id: 't1', subjectId: 'bio', title: 'Read Chapter 4', due: today, priority: 'Medium', done: false}, {id: 't2', subjectId: 'math', title: 'Finish worksheet', due: today, priority: 'High', done: false}],
     cards: [{id: 'c1', subjectId: 'bio', question: 'What is photosynthesis?', answer: 'Plants use sunlight to turn water and carbon dioxide into glucose and oxygen.', interval: 0, due: today}, {id: 'c2', subjectId: 'bio', question: 'What is the function of mitochondria?', answer: 'They produce energy (ATP) through cellular respiration.', interval: 0, due: today}],
-    notes: [], exams: [], logs: [], timer: null};
+    notes: [], exams: [], logs: [], timer: null, activeQuiz:null});
 }
 function reviewCard(card, remembered, today = new Date()) {
   const interval = remembered ? Math.min(180, Math.max(1, card.interval * 2)) : 0;
@@ -55,6 +55,16 @@ function validateBackup(value) {
   for (const s of value.subjects) if (!text(s.name) || !s.name.trim() || !COLORS.includes(s.color) || !SUBJECT_ICONS.some(option=>option.value===s.icon)) fail();
   for (const key of ['sessions', 'tasks', 'cards', 'notes', 'exams']) for (const x of value[key]) {
     if (!subjects.has(x.subjectId)) fail();
+    if (['tasks','exams'].includes(key) && x.remindDays !== undefined && x.remindDays !== null && (![0,1,3,7].includes(x.remindDays) || !validTime(x.reminderTime))) fail();
+    if (key === 'tasks' && x.steps !== undefined) {
+      if (!Array.isArray(x.steps) || x.steps.length > 50) fail();
+      const ids = new Set();
+      for (const step of x.steps) {
+        if (!step || typeof step.id !== 'string' || !step.id || ids.has(step.id) || !text(step.title) || !step.title.trim() || step.title.length > 200 || typeof step.done !== 'boolean') fail();
+        ids.add(step.id);
+      }
+      if (x.steps.length && x.done !== x.steps.every(step=>step.done)) fail();
+    }
     if (key === 'sessions' && (!text(x.title) || !validDate(x.date) || !validTime(x.time) || !Number.isFinite(x.duration) || x.duration < 5 || x.duration > 240 || typeof x.done !== 'boolean')) fail();
     if (key === 'tasks' && (!text(x.title) || !validDate(x.due) || !['Low','Medium','High'].includes(x.priority) || typeof x.done !== 'boolean')) fail();
     if (key === 'cards' && (!text(x.question) || !text(x.answer) || !validDate(x.due) || !Number.isFinite(x.interval) || x.interval < 0 || x.interval > 180)) fail();
@@ -62,6 +72,14 @@ function validateBackup(value) {
     if (key === 'exams' && (!text(x.title) || !validDate(x.date))) fail();
   }
   for (const l of value.logs) if (!text(l.subjectId) || !validDate(l.date) || !Number.isFinite(l.minutes) || l.minutes <= 0 || l.minutes > 1440) fail();
-  return {...value, timer: null};
+  return {...require('./studyHubModel').validateHub(value), timer: null, activeQuiz:null};
 }
-module.exports = {COLORS, uid, dateKey, validDate, validTime, initialState, reviewCard, weekDates, remainingSeconds, streak, validateBackup};
+function hydratePlanner(value) {
+  const state=validateBackup(value);
+  const timer=value.timer;
+  // Portable backups omit active timers; device reloads preserve valid ones.
+  if(timer && typeof timer.id==='string' && ['focus','break'].includes(timer.mode) && typeof timer.running==='boolean' && Number.isFinite(timer.total) && timer.total>=60 && timer.total<=10800 && Number.isFinite(timer.remaining) && timer.remaining>=0 && timer.remaining<=timer.total && Number.isFinite(timer.endsAt) && (timer.mode==='break'||state.subjects.some(s=>s.id===timer.subjectId))) state.timer=timer;
+  if(require('./studyHubModel').validQuiz(value.activeQuiz))state.activeQuiz=value.activeQuiz;
+  return state;
+}
+module.exports = {COLORS, uid, dateKey, validDate, validTime, initialState, reviewCard, weekDates, remainingSeconds, streak, validateBackup, hydratePlanner};

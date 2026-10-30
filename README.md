@@ -2,6 +2,31 @@
 
 A fully offline Android study planner built with **React Native CLI**, matching the lavender, cream, flower, and sleepy-cat storyboard. Development branch: **study-planer**.
 
+### 1.5.0 — Connected study toolkit
+
+- Multi-subject exams and a chapter syllabus with estimated minutes, target exams and Not started / Learning / Completed / Revised status.
+- Home daily chapter suggestions balance subjects, pace toward exam dates and respect daily focus targets and available weekdays. Large chapters are flagged instead of silently overfilling the target.
+- Preview an offline revision schedule before adding it. It respects existing sessions, preferred study time, available days and daily capacity, and reports chapters that cannot fit. Re-running the planner skips already scheduled chapters.
+- Launch Focus from a chapter. Completed timer logs retain the subject and chapter, and count on the completion day. Chapter status and recorded focus minutes remain separate measures.
+- A question bank with four-option questions, explanations and optional chapter links; feedback-based practice; and timed mock exams with previous/next navigation, unanswered-question handling, saved attempts and full answer review. Unfinished tests survive local restart; expired mock tests are submitted when reopened. Question snapshots preserve historical results after editing the bank. Previous-mistake practice uses earlier incorrect/unanswered questions.
+- Text-based formulas, facts and worked examples; global search across study material; monthly calendar combining sessions, assignments and exams; manual marks and weighted-by-total-marks subject percentages.
+- Daily focus goals, study-day selection, preferred study start, six accent colours, optional tab labels and an in-app guide.
+- Opt-in morning plan reminders and nightly recaps use native local alarms. Daily alarms re-arm on delivery, reboot and clock/time-zone changes. Recaps use saved focus minutes, completed dated sessions and chapter completions. Android power management can delay delivery.
+- New material and attempts are included in validated JSON backups. Legacy version-1 backups receive defaults. Portable backups exclude active timers/tests; on-device reload preserves valid active tests.
+
+Research: [MIT Open Learning](https://openlearning.mit.edu/mit-faculty/research-based-learning-findings) informed retrieval/spaced practice, and the provided competitor screenshots informed the feature gaps. This app contains user-entered study content; it does not promise generated question banks, cloud sync, PDF annotation, or an exam-score prediction.
+
+### 1.4.0 — Everyday study planning
+
+- Repeat new study sessions on chosen weekdays for 1–12 weeks. The app previews the number of sessions before saving; generated sessions are independent and can be edited or deleted separately. Overlapping schedules prompt a warning before saving.
+- Break assignments into up to 50 checklist steps. All steps complete the assignment; reopening a step reopens it. Completing or reopening the parent updates its steps too.
+- Search assignment titles and checklist steps; combine subject filters with To do, Overdue, Completed, or All. Assignments are sorted by completion, due date, and priority.
+- Home shows overdue assignments and deadlines in the next seven days, with direct links to their editors.
+- Optional assignment and exam reminders: on the day, one day, three days, or one week before, at a chosen native-clock time. Local reminders must be enabled in Settings. Past new reminders are rejected; completed/deleted items cancel their alerts. Restore reschedules enabled reminders automatically.
+- Legacy version-1 backups remain supported. New checklist/reminder data is validated on import. Valid device timers survive reload; invalid saved timers are discarded. Portable backups continue to exclude timers.
+
+Research used for this release: [MyStudyLife feature tour](https://mystudylife.com/tour/) (schedules, deadlines, partial progress, reminders) and [Todoist getting started](https://www.todoist.com/help/todoist/get-started/get-started-with-todoist-OgNNJR) (assignment steps, priorities, upcoming work). These sources informed the selection; all new features work offline without those services.
+
 ### 1.3.0 — Expanded subject choices
 
 The subject editor keeps five quick colors and three quick icons, each followed by a **More** button. Separate scrollable popups offer 40 colors and 31 named subject icons, with selection indicators and light/dark themes. Choosing an option returns to the editor; dismissing the popup preserves the draft. All choices work offline, survive reload and backup restore, and retain the styles from earlier builds.
@@ -67,7 +92,7 @@ This checkout targets Android. An iOS native project and iOS reminder/file-picke
 
 ## Data and reminders
 
-Backups replace the current planner after confirmation and are validated before import. Timer state is excluded from portable backups. Android system backups are disabled: export your backup before uninstalling or moving devices. Notifications are opt-in under Settings. Session alerts are rescheduled on reboot; force-stopping the app blocks Android alarms until it is opened again. Restoring a backup cancels old alarms; toggle reminders to enable the restored schedule.
+Backups replace the current planner after confirmation and are validated before import. Active timer and test state is excluded from portable backups. Android system backups are disabled: export your backup before uninstalling or moving devices. Notifications are opt-in under Settings. Session alerts are rescheduled on reboot; force-stopping the app blocks Android alarms until it is opened again. Restoring a backup cancels old alarms and reschedules future alerts when the restored settings enable reminders.
 
 ## Validation
 
