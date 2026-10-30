@@ -85,7 +85,7 @@ test('planner screens save recurring sessions, checklist work and deadline alert
     assert.equal(saved.questions.length,1);await press('Start practice');await press('Quiz answer B');await press('Check answer');
     await press('Submit test');await flush(()=>alerts.at(-1)[2].find(b=>b.text==='Submit').onPress());
     assert.equal(saved.attempts.length,1);assert.equal(saved.attempts[0].correct,1);assert.equal(saved.activeQuiz,null);
-    await press(`Review test ${saved.attempts[0].id}`);await press('Close answer review');
+    await press(`Review test from ${new Date(saved.attempts[0].finishedAt).toLocaleString()}`);await press('Close answer review');
     await press('Home');await press('🔎 Search everything');await text('Search study material','Cell basics');
     await press('Cell basics');await text('Study title','Cell biology');await press('Save study item');assert.equal(saved.chapters[0].title,'Cell biology');
     await press('Open settings');await flush(()=>byLabel('Daily plan reminder','Switch').props.onValueChange(true));

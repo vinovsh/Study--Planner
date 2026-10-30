@@ -7,10 +7,11 @@ def nodes():
     xml=adb('shell','cat','/sdcard/appearance-ui.xml');(out/'appearance-ui.xml').write_text(xml)
     return list(ET.fromstring(xml).iter('node'))
 def bounds(n):return list(map(int,re.findall(r'-?\d+',n.get('bounds',''))))
-def find(label,scroll=False,edit=False):
+def find(label,scroll=False,edit=False,click=False):
     _,screen_height=map(int,re.findall(r'\d+',adb('shell','wm','size'))[-2:])
     for attempt in range(9 if scroll else 3):
         for n in nodes():
+            if click and n.get('clickable')!='true':continue
             if edit and n.get('class')!='android.widget.EditText':continue
             if label in (n.get('text'),n.get('content-desc')):
                 b=bounds(n)
@@ -22,7 +23,7 @@ def find(label,scroll=False,edit=False):
         time.sleep(.5)
     raise AssertionError('Missing appearance UI: '+label)
 def tap(label,scroll=False,edit=False):
-    b=bounds(find(label,scroll,edit));adb('shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2));time.sleep(.5)
+    b=bounds(find(label,scroll,edit,click=True));adb('shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2));time.sleep(.5)
 def screenshot(name):
     with (out/(name+'.png')).open('wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
 def subjects():tap('Home');tap('Subjects',scroll=True)
@@ -48,7 +49,7 @@ try:
     adb('shell','am','force-stop','com.studybloom');adb('logcat','-c');adb('shell','am','start','-n','com.studybloom/.MainActivity');time.sleep(2)
     toolkit('📖 Chapters & daily plan');tap('Add chapter',scroll=True)
     input_text('Study title','Native cell chapter');tap('Save study item',scroll=True)
-    find('Native cell chapter',scroll=True);screenshot('14-chapter-plan')
+    find('Syllabus & daily plan',scroll=True);find('Native cell chapter',scroll=True);screenshot('14-chapter-plan')
     tap('Focus on Native cell chapter',scroll=True);find('Chapter: Native cell chapter');screenshot('15-chapter-focus')
     toolkit('🧮 Formulas & facts');tap('Add formula or fact',scroll=True)
     input_text('Study title','Native force formula');input_text('Formula, fact and explanation','F equals mass times acceleration')
