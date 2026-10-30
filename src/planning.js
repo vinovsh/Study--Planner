@@ -71,6 +71,10 @@ function reminderRecords(data, now=Date.now()) {
     });
   }
   if(data.timer?.running)add('focus','Study Bloom',data.timer.mode==='focus'?'Your focus session is complete. Time for a break!':'Your break is over.',data.timer.endsAt);
+  for(const [key,id,title,timeKey] of [['dailyReminder','daily-plan','Your daily study plan','morningTime'],['nightlyRecap','daily-recap','Your study recap','recapTime']])if(data.settings[key]){
+    const [hour,minute]=data.settings[timeKey].split(':').map(Number);
+    records.push({id,title,body:key==='dailyReminder'?'Open Study Bloom to see your chapters, sessions and upcoming deadlines.':'Open Study Bloom to review your progress.',daily:true,hour,minute});
+  }
   return records;
 }
 module.exports={shiftDate,repeatSessions,hasSessionConflict,taskProgress,completeTask,toggleStep,filterTasks,upcomingDeadlines,reminderRecords};

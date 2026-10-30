@@ -88,6 +88,16 @@ class BloomDevice(private val context: ReactApplicationContext) : ReactContextBa
       promise.resolve(true)
     } catch (e: Exception) { promise.reject("REMINDER", "Could not schedule reminder", e) }
   }
+  @ReactMethod fun scheduleDailyReminder(id: String, title: String, body: String, hour: Int, minute: Int, promise: Promise) {
+    try {
+      require(hour in 0..23 && minute in 0..59)
+      Reminders.scheduleDaily(context, id, title, body, hour, minute)
+      promise.resolve(true)
+    } catch (e: Exception) { promise.reject("REMINDER", "Could not schedule daily reminder", e) }
+  }
+  @ReactMethod fun setStudySummary(json: String) {
+    try { JSONObject(json); context.getSharedPreferences("bloom-summary", Context.MODE_PRIVATE).edit().putString("days", json).apply() } catch (_: Exception) {}
+  }
   @ReactMethod fun cancelReminder(id: String) { Reminders.cancel(context, id) }
   @ReactMethod fun cancelAllReminders() {
     val keys = Reminders.preferences(context).all.keys.toList()
@@ -154,9 +164,18 @@ object Reminders {
   fun schedule(context: Context, id: String, title: String, body: String, timestamp: Long) {
     if (timestamp <= System.currentTimeMillis()) return
     val record = JSONObject().put("title", title).put("body", body).put("time", timestamp)
+    saveAndSchedule(context, id, record)
+  }
+  fun scheduleDaily(context: Context, id: String, title: String, body: String, hour: Int, minute: Int) {
+    val next = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, hour); set(Calendar.MINUTE, minute); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+    if (next.timeInMillis <= System.currentTimeMillis()) next.add(Calendar.DAY_OF_YEAR, 1)
+    val record = JSONObject().put("title", title).put("body", body).put("time", next.timeInMillis).put("dailyHour", hour).put("dailyMinute", minute)
+    saveAndSchedule(context, id, record)
+  }
+  private fun saveAndSchedule(context: Context, id: String, record: JSONObject) {
     preferences(context).edit().putString(id, record.toString()).apply()
     val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timestamp, pending(context, id))
+    alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, record.getLong("time"), pending(context, id))
   }
   fun cancel(context: Context, id: String) {
     (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pending(context, id))
@@ -171,11 +190,23 @@ class ReminderReceiver : BroadcastReceiver() {
     Reminders.preferences(context).edit().remove(id).apply()
     try {
       val record = JSONObject(raw)
+      if (record.has("dailyHour")) Reminders.scheduleDaily(context, id, record.getString("title"), record.getString("body"), record.getInt("dailyHour"), record.getInt("dailyMinute"))
+      var body = record.getString("body")
+      if (id == "daily-recap") {
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date(record.getLong("time")))
+        val rawSummary = context.getSharedPreferences("bloom-summary", Context.MODE_PRIVATE).getString("days", "{}") ?: "{}"
+        val allDays = JSONObject(rawSummary)
+        val summary = allDays.optJSONObject(date) ?: JSONObject()
+        val timer = allDays.optJSONObject("_timer")
+        var minutes = summary.optInt("minutes")
+        if (timer != null && timer.optLong("endsAt") <= System.currentTimeMillis() && SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date(timer.optLong("endsAt"))) == date) minutes += timer.optInt("minutes")
+        body = "${minutes} focus minutes · ${summary.optInt("sessions")} sessions · ${summary.optInt("chapters")} chapters completed."
+      }
       val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel("study-bloom", "Study & focus reminders", NotificationManager.IMPORTANCE_DEFAULT))
       val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
       val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, "study-bloom") else Notification.Builder(context)
-      val notification = builder.setSmallIcon(R.drawable.ic_notification).setContentTitle(record.getString("title")).setContentText(record.getString("body")).setContentIntent(open).setAutoCancel(true).build()
+      val notification = builder.setSmallIcon(R.drawable.ic_notification).setContentTitle(record.getString("title")).setContentText(body).setStyle(Notification.BigTextStyle().bigText(body)).setContentIntent(open).setAutoCancel(true).build()
       manager.notify(id.hashCode(), notification)
     } catch (_: Exception) { /* Permission may have been revoked outside the app. */ }
   }
@@ -183,11 +214,12 @@ class ReminderReceiver : BroadcastReceiver() {
 
 class BootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
-    if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+    if (intent.action !in listOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_TIME_CHANGED)) return
     Reminders.preferences(context).all.forEach { (id, raw) ->
       try {
         val record = JSONObject(raw as String)
-        if (record.getLong("time") > System.currentTimeMillis()) Reminders.schedule(context, id, record.getString("title"), record.getString("body"), record.getLong("time"))
+        if (record.has("dailyHour")) Reminders.scheduleDaily(context, id, record.getString("title"), record.getString("body"), record.getInt("dailyHour"), record.getInt("dailyMinute"))
+        else if (record.getLong("time") > System.currentTimeMillis()) Reminders.schedule(context, id, record.getString("title"), record.getString("body"), record.getLong("time"))
         else Reminders.cancel(context, id)
       } catch (_: Exception) { Reminders.cancel(context, id) }
     }
