@@ -2,6 +2,17 @@
 
 A fully offline Android study planner built with **React Native CLI**, matching the lavender, cream, flower, and sleepy-cat storyboard. Development branch: **study-planer**.
 
+### 1.4.0 — Everyday study planning
+
+- Repeat new study sessions on chosen weekdays for 1–12 weeks. The app previews the number of sessions before saving; generated sessions are independent and can be edited or deleted separately. Overlapping schedules prompt a warning before saving.
+- Break assignments into up to 50 checklist steps. All steps complete the assignment; reopening a step reopens it. Completing or reopening the parent updates its steps too.
+- Search assignment titles and checklist steps; combine subject filters with To do, Overdue, Completed, or All. Assignments are sorted by completion, due date, and priority.
+- Home shows overdue assignments and deadlines in the next seven days, with direct links to their editors.
+- Optional assignment and exam reminders: on the day, one day, three days, or one week before, at a chosen native-clock time. Local reminders must be enabled in Settings. Past new reminders are rejected; completed/deleted items cancel their alerts. Restore reschedules enabled reminders automatically.
+- Legacy version-1 backups remain supported. New checklist/reminder data is validated on import. Valid device timers survive reload; invalid saved timers are discarded. Portable backups continue to exclude timers.
+
+Research used for this release: [MyStudyLife feature tour](https://mystudylife.com/tour/) (schedules, deadlines, partial progress, reminders) and [Todoist getting started](https://www.todoist.com/help/todoist/get-started/get-started-with-todoist-OgNNJR) (assignment steps, priorities, upcoming work). These sources informed the selection; all new features work offline without those services.
+
 ### 1.3.0 — Expanded subject choices
 
 The subject editor keeps five quick colors and three quick icons, each followed by a **More** button. Separate scrollable popups offer 40 colors and 31 named subject icons, with selection indicators and light/dark themes. Choosing an option returns to the editor; dismissing the popup preserves the draft. All choices work offline, survive reload and backup restore, and retain the styles from earlier builds.
@@ -67,7 +78,7 @@ This checkout targets Android. An iOS native project and iOS reminder/file-picke
 
 ## Data and reminders
 
-Backups replace the current planner after confirmation and are validated before import. Timer state is excluded from portable backups. Android system backups are disabled: export your backup before uninstalling or moving devices. Notifications are opt-in under Settings. Session alerts are rescheduled on reboot; force-stopping the app blocks Android alarms until it is opened again. Restoring a backup cancels old alarms; toggle reminders to enable the restored schedule.
+Backups replace the current planner after confirmation and are validated before import. Timer state is excluded from portable backups. Android system backups are disabled: export your backup before uninstalling or moving devices. Notifications are opt-in under Settings. Session alerts are rescheduled on reboot; force-stopping the app blocks Android alarms until it is opened again. Restoring a backup cancels old alarms and reschedules future alerts when the restored settings enable reminders.
 
 ## Validation
 

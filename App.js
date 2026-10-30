@@ -5,8 +5,10 @@ import Svg, {Circle} from 'react-native-svg';
 import {Icon, CatGarden} from './src/art';
 import {SubjectAppearanceFields, SubjectAppearancePopup} from './src/SubjectAppearance';
 import BloomHero, {BOOKWORM} from './src/BloomHero';
+import {RepeatFields,ReminderFields,TaskSteps,TaskFilters} from './src/PlanningFields';
+const {repeatSessions,hasSessionConflict,taskProgress,completeTask,toggleStep,filterTasks,upcomingDeadlines,reminderRecords}=require('./src/planning');
 const {dateLabel,timeLabel,durationLabel,validDuration} = require('./src/timeFields');
-const {COLORS, uid, dateKey, validDate, validTime, initialState, reviewCard, weekDates, remainingSeconds, streak, validateBackup} = require('./src/model');
+const {COLORS, uid, dateKey, validDate, validTime, initialState, reviewCard, weekDates, remainingSeconds, streak, validateBackup, hydratePlanner} = require('./src/model');
 const KEY = 'study-bloom-v1';
 const Native = NativeModules.BloomDevice;
 const light = {bg:'#FFF9F0', card:'#FFFCF7', ink:'#35274D', muted:'#8B8196', line:'#EDE5DA', purple:'#A18AD4', pale:'#EAE0F8', green:'#91B77B'};
@@ -18,6 +20,10 @@ export default function App() {
   const [seconds,setSeconds] = useState(0), [focusSubject,setFocusSubject] = useState('bio'), [revealed,setRevealed] = useState(false), [cardSubject,setCardSubject] = useState('bio');
   const [celebration,setCelebration] = useState(0);
   const [appearance,setAppearance] = useState(null);
+  const [calendarDay,setCalendarDay]=useState(dateKey());
+  const [repeat,setRepeat]=useState({enabled:false,weeks:4,days:[]});
+  const [taskFilter,setTaskFilter]=useState({query:'',status:'open',subjectId:''});
+  const reminderQueue=useRef(Promise.resolve()), syncedReminders=useRef(null);
   const changeAppearance=(key,value)=>setDraft(d=>({...d,[key]:value}));
   const [noteOpen,setNoteOpen] = useState(null), [toast,setToast] = useState('');
   const current = useRef(null), ready = useRef(false), toastTimer = useRef(null), finishGuard = useRef(null);
@@ -28,8 +34,7 @@ export default function App() {
     setError('');
     try {
       const raw = await AsyncStorage.getItem(KEY);
-      const state = raw ? JSON.parse(raw) : initialState();
-      if (raw) validateBackup(state);
+      const state = raw ? hydratePlanner(JSON.parse(raw)) : initialState();
       current.current = state; ready.current = true; setData(state);
       setFocusSubject(state.subjects[0]?.id || ''); setCardSubject(state.subjects[0]?.id || '');
     } catch (e) {setError('Your saved planner could not be loaded. Retry before making changes.');}
@@ -42,33 +47,43 @@ export default function App() {
     saveQueue = saveQueue.catch(()=>{}).then(()=>AsyncStorage.setItem(KEY,JSON.stringify(next))).catch(()=>say('Could not save. Please check device storage.'));
   }
   const subject = id => data?.subjects.find(x=>x.id===id) || {name:'Archived subject',color:COLORS[3],icon:'book'};
-  const today = dateKey();
+  const today = calendarDay;
   const sessions = data?.sessions.filter(s=>s.date===today).sort((a,b)=>a.time.localeCompare(b.time)) || [];
   function finishTimer(timer) {
     if (!timer || finishGuard.current === timer.id || current.current?.timer?.id !== timer.id) return;
     finishGuard.current = timer.id;
     update(d=>({...d,timer:null,logs:timer.mode==='focus'?[...d.logs,{id:uid(),subjectId:timer.subjectId,date:dateKey(),minutes:timer.total/60}]:d.logs}));
-    Native?.cancelReminder('focus'); Vibration.vibrate(400);
+    Vibration.vibrate(400);
     Alert.alert(timer.mode==='focus'?'You bloomed a little!':'Break is over',timer.mode==='focus'?'Your focus time is saved. Take a gentle break.':'Ready for another little step?', timer.mode==='focus'?[{text:'Done'},{text:'Start break',onPress:()=>startTimer('break')}]:[{text:'Lovely'}]);
   }
   useEffect(()=>{
-    const tick = ()=>{const timer=current.current?.timer; setSeconds(timer ? remainingSeconds(timer) : (current.current?.settings.focus||25)*60); if(timer?.running && remainingSeconds(timer)===0) finishTimer(timer);};
+    const tick = ()=>{setCalendarDay(dateKey());const timer=current.current?.timer; setSeconds(timer ? remainingSeconds(timer) : (current.current?.settings.focus||25)*60); if(timer?.running && remainingSeconds(timer)===0) finishTimer(timer);};
     tick(); const interval=setInterval(tick,1000); const listener=AppState.addEventListener('change',s=>{if(s==='active')tick();});
     return ()=>{clearInterval(interval);listener.remove();};
   },[]);
-  async function notify(id,title,body,time) {
-    if (!current.current?.settings.reminders || time <= Date.now()) return;
-    try {await Native?.scheduleReminder(id,title,body,time);} catch {say('Reminder could not be scheduled.');}
-  }
+  useEffect(()=>{
+    if(!data)return;
+    const records=reminderRecords(data);
+    reminderQueue.current=reminderQueue.current.catch(()=>{}).then(async()=>{
+      try {
+        if(syncedReminders.current===null){await Native?.cancelAllReminders();syncedReminders.current=new Map();}
+        const previous=syncedReminders.current;
+        const next=new Map(records.map(r=>[r.id,JSON.stringify(r)]));
+        for(const [id] of previous)if(!next.has(id)){await Native?.cancelReminder(id);previous.delete(id);}
+        for(const r of records)if(previous.get(r.id)!==next.get(r.id)){
+          await Native?.scheduleReminder(r.id,r.title,r.body,r.time);
+          previous.set(r.id,next.get(r.id));
+        }
+      } catch {say('Some reminders could not be scheduled. Toggle Local reminders in Settings to retry.');syncedReminders.current=null;}
+    });
+  },[data]);
   async function enableReminders(value) {
     if(value && Platform.OS==='android' && Platform.Version>=33) {
       const result=await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
       if(result!==PermissionsAndroid.RESULTS.GRANTED){say('Allow notifications in Android settings to receive reminders.');return;}
     }
     update(d=>({...d,settings:{...d.settings,reminders:value}}));
-    if(!value){Native?.cancelAllReminders();return;}
-    data.sessions.filter(s=>!s.done).forEach(s=>notify(s.id,`Time for ${subject(s.subjectId).name}`,s.title,new Date(`${s.date}T${s.time}:00`).getTime()));
-    if(data.timer?.running) notify('focus','Study Bloom',data.timer.mode==='focus'?'Your focus session is complete.':'Your break is over.',data.timer.endsAt);
+    if(!value)return;
     say('Reminders enabled. Android may deliver them a little late in battery saver.');
   }
   function startTimer(mode='focus') {
@@ -77,13 +92,12 @@ export default function App() {
     const total=latest.settings[mode==='focus'?'focus':'break']*60;
     const timer={id:uid(),mode,total,remaining:total,running:true,endsAt:Date.now()+total*1000,subjectId:latest.subjects.some(s=>s.id===focusSubject)?focusSubject:latest.subjects[0]?.id};
     finishGuard.current=null;update(d=>({...d,timer}));setSeconds(total);
-    notify('focus','Study Bloom',mode==='focus'?'Your focus session is complete. Time for a break!':'Your break is over.',timer.endsAt);
   }
   function toggleTimer() {
     if(!data.timer){startTimer();return;}
     const timer=data.timer;
-    if(timer.running){update(d=>({...d,timer:{...timer,running:false,remaining:remainingSeconds(timer)}}));Native?.cancelReminder('focus');}
-    else {const next={...timer,running:true,endsAt:Date.now()+timer.remaining*1000};update(d=>({...d,timer:next}));notify('focus','Study Bloom','Your timer is complete.',next.endsAt);}
+    if(timer.running){update(d=>({...d,timer:{...timer,running:false,remaining:remainingSeconds(timer)}}));}
+    else {const next={...timer,running:true,endsAt:Date.now()+timer.remaining*1000};update(d=>({...d,timer:next}));}
   }
   async function chooseDate() {
     Keyboard.dismiss();
@@ -106,6 +120,7 @@ export default function App() {
     } catch {Alert.alert('Duration picker','Could not open the clock. Please try again.');}
   }
   function openForm(type,item=null) {
+    setRepeat({enabled:false,weeks:4,days:[new Date(`${item?.date||selected}T12:00:00`).getDay()]});
     setAppearance(null);setForm(type);setDraft(item ? {...item} : {subjectId:data.subjects[0]?.id||'',date:selected,due:today,time:'09:00',duration:'30',color:COLORS[0],icon:'leaf',priority:'Medium',title:'',name:'',question:'',answer:'',body:''});
   }
   function saveForm() {
@@ -125,29 +140,50 @@ export default function App() {
     }
     if(form==='task' && !validDate(x.due)){say('Use a valid due date: YYYY-MM-DD.');return;}
     if(form==='task') x.done=x.done||false;
+    if(form==='task') {
+      x.steps=(x.steps||[]).map(step=>({...step,title:step.title.trim()}));
+      if(x.steps.some(step=>!step.title)){say('Give each checklist step a title or remove the empty step.');return;}
+      if(x.steps.length)x.done=x.steps.every(step=>step.done);
+    }
     if(form==='exam' && !validDate(x.date)){say('Use a valid exam date: YYYY-MM-DD.');return;}
+    if(['task','exam'].includes(form)&&Number.isInteger(x.remindDays)) {
+      if(![0,1,3,7].includes(x.remindDays)||!validTime(x.reminderTime)){say('Choose a valid reminder time.');return;}
+      // Old reminders may be in the past when editing an overdue item; only new or changed alerts must be future-dated.
+      const before=(form==='task'?data.tasks:data.exams).find(v=>v.id===x.id);
+      const date=form==='task'?x.due:x.date;
+      const oldDate=before&&(form==='task'?before.due:before.date);
+      const changed=!before||before.remindDays!==x.remindDays||before.reminderTime!==x.reminderTime||oldDate!==date;
+      const at=new Date(`${date}T${x.reminderTime}:00`);at.setDate(at.getDate()-x.remindDays);
+      if(changed&&at.getTime()<=Date.now()){say('This reminder is in the past. Choose a later time or turn it off.');return;}
+    }
     if(form==='card'){x.interval=x.interval||0;x.due=x.due||today;}
     const key={subject:'subjects',session:'sessions',task:'tasks',card:'cards',note:'notes',exam:'exams'}[form];
-    update(d=>({...d,[key]:draft.id?d[key].map(v=>v.id===x.id?x:v):[...d[key],x]}));
-    if(form==='session') {Native?.cancelReminder(x.id);if(!x.done)notify(x.id,`Time for ${subject(x.subjectId).name}`,x.title,new Date(`${x.date}T${x.time}:00`).getTime());}
-    setForm(null);say(draft.id?'Changes saved':'A little plan, saved');
+    let additions=[x];
+    if(form==='session'&&!draft.id&&repeat.enabled){
+      try{additions=repeatSessions(x,repeat.weeks,repeat.days);}catch(e){say(e.message);return;}
+    }
+    if(!draft.id&&data[key].length+additions.length>10000){say('Planner limit reached. Remove older items before adding more.');return;}
+    const commit=()=>{
+      update(d=>({...d,[key]:draft.id?d[key].map(v=>v.id===x.id?x:v):[...d[key],...additions]}));
+      setForm(null);say(additions.length>1?`${additions.length} study sessions saved`:draft.id?'Changes saved':'A little plan, saved');
+    };
+    if(form==='session'&&hasSessionConflict(data.sessions,additions,draft.id)) {
+      Alert.alert('Study sessions overlap','At least one session overlaps another planned session. Adjust the time or keep both.',[{text:'Adjust time',style:'cancel'},{text:'Keep both',onPress:commit}]);return;
+    }
+    commit();
   }
   function remove(type,item) {
     Alert.alert(`Delete ${type}?`,type==='subject'?'Its sessions, tasks, cards, notes, and exams will also be removed. Study history is kept.':'This item will be removed.',[{text:'Cancel',style:'cancel'},{text:'Delete',style:'destructive',onPress:()=>{
       const key={subject:'subjects',session:'sessions',task:'tasks',card:'cards',note:'notes',exam:'exams'}[type];
       if(type==='subject') {
-        data.sessions.filter(s=>s.subjectId===item.id).forEach(s=>Native?.cancelReminder(s.id));
-        if(data.timer?.subjectId===item.id){Native?.cancelReminder('focus');}
         update(d=>({...d,subjects:d.subjects.filter(s=>s.id!==item.id),sessions:d.sessions.filter(s=>s.subjectId!==item.id),tasks:d.tasks.filter(s=>s.subjectId!==item.id),cards:d.cards.filter(s=>s.subjectId!==item.id),notes:d.notes.filter(s=>s.subjectId!==item.id),exams:d.exams.filter(s=>s.subjectId!==item.id),timer:d.timer?.subjectId===item.id?null:d.timer}));
-      } else {update(d=>({...d,[key]:d[key].filter(s=>s.id!==item.id)}));if(type==='session')Native?.cancelReminder(item.id);}
+      } else {update(d=>({...d,[key]:d[key].filter(s=>s.id!==item.id)}));}
       setForm(null);setNoteOpen(null);
     }}]);
   }
   function toggleSession(item) {
     if(!item.done)setCelebration(n=>n+1);
     update(d=>({...d,sessions:d.sessions.map(s=>s.id===item.id?{...s,done:!s.done}:s)}));
-    Native?.cancelReminder(item.id);
-    if(item.done)notify(item.id,`Time for ${subject(item.subjectId).name}`,item.title,new Date(`${item.date}T${item.time}:00`).getTime());
   }
   const titleStyle=[s.title,{color:c.ink}], muted=[s.muted,{color:c.muted}];
   const cardStyle=[s.card,{backgroundColor:c.card,borderColor:c.line}];
@@ -174,11 +210,13 @@ export default function App() {
   const weekMinutes=weekLogs.reduce((n,l)=>n+l.minutes,0);
   const cards=data.cards.filter(x=>x.subjectId===cardSubject && x.due<=today);
   const activeCard=cards[0];
+  const deadlines=upcomingDeadlines(data,today);
+  const visibleTasks=filterTasks(data.tasks,taskFilter,today);
   const timer=data.timer;
   const timerTotal=timer?.total || data.settings.focus*60;
   async function backup() {try{await saveQueue;await Native.exportBackup(JSON.stringify({...current.current,timer:null}));say('Backup saved');}catch(e){if(e.code!=='CANCELLED')say('Backup could not be saved.');}}
   async function restore() {
-    try{const raw=await Native.importBackup();const next=validateBackup(JSON.parse(raw));Alert.alert('Restore backup?','This replaces your current planner. Export a backup first if you want to keep it.',[{text:'Cancel',style:'cancel'},{text:'Restore',onPress:()=>{Native.cancelAllReminders();update(next);setFocusSubject(next.subjects[0]?.id||'');setCardSubject(next.subjects[0]?.id||'');setNoteOpen(null);say('Backup restored. Toggle reminders on to reschedule them.');}}]);}catch(e){if(e.code!=='CANCELLED')say('That file is not a valid Study Bloom backup.');}
+    try{const raw=await Native.importBackup();const next=validateBackup(JSON.parse(raw));Alert.alert('Restore backup?','This replaces your current planner. Export a backup first if you want to keep it.',[{text:'Cancel',style:'cancel'},{text:'Restore',onPress:()=>{syncedReminders.current=null;update(next);setFocusSubject(next.subjects[0]?.id||'');setCardSubject(next.subjects[0]?.id||'');setNoteOpen(null);say('Backup restored. Your enabled reminders are rescheduled.');}}]);}catch(e){if(e.code!=='CANCELLED')say('That file is not a valid Study Bloom backup.');}
   }
   return <SafeAreaView style={[s.safe,{backgroundColor:c.bg}]}>
     <StatusBar barStyle={data.settings.dark?'light-content':'dark-content'} backgroundColor={c.bg}/>
@@ -190,6 +228,8 @@ export default function App() {
       <View accessibilityLabel="Today’s progress" style={[cardStyle,{padding:15}]}><View style={[s.row,{gap:15}]}><View style={{width:74,height:74,alignItems:'center',justifyContent:'center'}}><Svg style={StyleSheet.absoluteFill} width={74} height={74}><Circle cx={37} cy={37} r={31} fill="none" stroke={c.pale} strokeWidth={8}/><Circle cx={37} cy={37} r={31} fill="none" stroke={c.green} strokeWidth={8} strokeDasharray={`${(sessions.length?completed/sessions.length:0)*195} 195`} rotation={-90} origin="37,37" strokeLinecap="round"/></Svg><Text style={[s.bodyBold,{color:c.ink,fontSize:22}]}>{completed}/{sessions.length}</Text></View><View style={{flex:1,gap:11}}><Text style={[s.bodyBold,{color:c.ink,fontSize:16}]}>{completed} of {sessions.length} sessions done</Text><Bar value={sessions.length?completed/sessions.length*100:0}/><Text style={[muted,{fontSize:12}]}>You’re doing great!</Text></View></View></View>
       <Heading title="Today’s plan" action={<Pressable onPress={()=>{setSelected(today);setTab('planner');}}><Text style={{color:c.purple,fontWeight:'600'}}>See all ›</Text></Pressable>}/>
       <View style={[cardStyle,{paddingHorizontal:13,paddingVertical:6}]}>{sessions.length?sessions.map(item=><SessionRow key={item.id} item={item}/>):<Text style={[muted,{padding:15}]}>A fresh page. Plan a little study time.</Text>}<Button secondary label="Add study session" icon="plus" onPress={()=>{setSelected(today);openForm('session');setDraft(d=>({...d,date:today}));}}/></View>
+      <Heading title="Deadlines & revision" subtitle="Overdue work and the next 7 days"/>
+      <View style={cardStyle}>{deadlines.length?deadlines.slice(0,5).map(item=><Pressable key={`${item.kind}:${item.id}`} accessibilityRole="button" onPress={()=>openForm(item.kind,item)} style={{paddingVertical:12,borderBottomWidth:.5,borderColor:c.line}}><Text style={[s.bodyBold,{color:c.ink}]}>{item.kind==='exam'?'📚 Exam · ':''}{item.title}</Text><Text style={[muted,{marginTop:5,color:item.deadline<today?'#C57B86':c.muted}]}>{subject(item.subjectId).name} · {item.deadline<today?'Overdue · ':item.deadline===today?'Today · ':''}{dateLabel(item.deadline)}</Text></Pressable>):<Text style={muted}>No deadlines coming up. Keep taking small steps.</Text>}{deadlines.length>5&&<Text style={[muted,{marginTop:10}]}>{deadlines.length-5} more deadlines in Planner and Exams</Text>}<Button secondary small label="View assignments" onPress={()=>{setPage(null);setTab('planner');setTaskFilter({query:'',status:'open',subjectId:''});}}/></View>
       <View style={s.quickGrid}>{[['subjects','book','Subjects'],['cards','cards','Flashcards'],['notes','note','Notes'],['exams','calendar','Exams']].map(([id,icon,label])=><Pressable key={id} accessibilityRole="button" onPress={()=>setPage(id)} style={[s.quickCard,{backgroundColor:c.card,borderColor:c.line}]}><View style={[s.subjectIcon,{backgroundColor:c.pale}]}><Icon name={icon} color={c.purple}/></View><Text style={[s.bodyBold,{color:c.ink}]}>{label}</Text><Icon name="chevron" size={16} color={c.muted}/></Pressable>)}</View>
     </>}
     {activePage==='planner'&&<>
@@ -198,8 +238,10 @@ export default function App() {
       <View style={[s.row,{gap:5,marginBottom:20}]}>{dates.map(d=><Pressable key={dateKey(d)} accessibilityLabel={`Select ${dateKey(d)}`} onPress={()=>setSelected(dateKey(d))} style={[s.day,{backgroundColor:selected===dateKey(d)?c.purple:c.card,borderColor:c.line}]}><Text style={{fontSize:11,color:selected===dateKey(d)?'#fff':c.muted}}>{d.toLocaleDateString('en-US',{weekday:'short'})}</Text><Text style={{fontSize:17,fontWeight:'700',marginTop:5,color:selected===dateKey(d)?'#fff':c.ink}}>{d.getDate()}</Text>{dateKey(d)===today&&<View style={[s.dot,{backgroundColor:selected===dateKey(d)?'#fff':c.green,marginTop:5}]}/>}</Pressable>)}</View>
       {data.sessions.filter(x=>x.date===selected).sort((a,b)=>a.time.localeCompare(b.time)).map(item=><View key={item.id} style={[s.row,{alignItems:'flex-start',marginBottom:14}]}><Text style={[muted,{width:44,paddingTop:18}]}>{item.time}</Text><View style={[s.planCard,{backgroundColor:subject(item.subjectId).color}]}><View style={s.row}><View style={{flex:1}}><Text style={[s.bodyBold,{color:'#35274D'}]}>{subject(item.subjectId).name}</Text><Text style={{color:'#655873',fontSize:12,marginTop:4}}>{item.title} · {item.duration} min</Text></View><Pressable accessibilityLabel="Edit session" style={s.iconButton} onPress={()=>openForm('session',item)}><Text style={{color:'#655873',fontSize:24}}>···</Text></Pressable></View><Pressable onPress={()=>toggleSession(item)} style={{alignSelf:'flex-start',marginTop:10,padding:6}}><Text style={{color:'#655873',fontSize:12}}>{item.done?'✓ Completed':'○ Mark complete'}</Text></Pressable></View></View>)}
       {!data.sessions.some(x=>x.date===selected)&&<Empty text="Your day has room to bloom." action={<Button label="Plan a session" small onPress={()=>openForm('session')}/>}/>}
-      <Heading title="Assignments" action={<Pressable onPress={()=>openForm('task')}><Icon name="plus" color={c.purple}/></Pressable>}/>
-      {data.tasks.length?<View style={cardStyle}>{[...data.tasks].sort((a,b)=>Number(a.done)-Number(b.done)||a.due.localeCompare(b.due)).map(t=><View key={t.id} style={[s.taskRow,{borderColor:c.line}]}><Pressable accessibilityRole="checkbox" accessibilityState={{checked:t.done}} accessibilityLabel={`Complete ${t.title}`} onPress={()=>{if(!t.done)setCelebration(n=>n+1);update(d=>({...d,tasks:d.tasks.map(x=>x.id===t.id?{...x,done:!x.done}:x)}));}} style={[s.checkbox,{borderColor:c.green,backgroundColor:t.done?c.green:'transparent'}]}>{t.done&&<Icon name="check" size={16} color="#fff"/>}</Pressable><Pressable style={{flex:1}} onPress={()=>openForm('task',t)}><Text style={[s.bodyBold,{color:c.ink,textDecorationLine:t.done?'line-through':'none'}]}>{t.title}</Text><Text style={[muted,{fontSize:11,marginTop:5,color:!t.done&&t.due<today?'#C57B86':c.muted}]}>{subject(t.subjectId).name} · {t.due} · {t.priority}</Text></Pressable></View>)}</View>:<Empty text="No assignments yet."/>}
+      <Heading title="Assignments" action={<Button small label="Add assignment" icon="plus" onPress={()=>openForm('task')}/>}/>
+      <TaskFilters value={taskFilter} onChange={setTaskFilter} subjects={data.subjects} c={c}/>
+      {visibleTasks.length?<View style={cardStyle}>{visibleTasks.map(t=>{const progress=taskProgress(t);return <View key={t.id} style={{paddingVertical:12,borderBottomWidth:.5,borderColor:c.line}}><View style={s.row}><Pressable accessibilityRole="checkbox" accessibilityState={{checked:t.done}} accessibilityLabel={`Complete ${t.title}`} onPress={()=>{if(!t.done)setCelebration(n=>n+1);update(d=>({...d,tasks:d.tasks.map(x=>x.id===t.id?completeTask(x):x)}));}} style={[s.iconButton,{borderRadius:12,backgroundColor:t.done?c.green:c.pale}]}><Text style={{color:c.ink}}>{t.done?'✓':'○'}</Text></Pressable><Pressable style={{flex:1,minHeight:44,justifyContent:'center'}} onPress={()=>openForm('task',t)}><Text style={[s.bodyBold,{color:c.ink,textDecorationLine:t.done?'line-through':'none'}]}>{t.title}</Text><Text style={[muted,{fontSize:12,marginTop:5,color:!t.done&&t.due<today?'#C57B86':c.muted}]}>{subject(t.subjectId).name} · {t.due} · {t.priority}{!t.done&&t.due<today?' · Overdue':''}</Text></Pressable></View>{progress.total>0&&<View style={{marginTop:12}}><Text style={[muted,{marginBottom:8}]}>{progress.done} of {progress.total} steps done</Text><Bar value={progress.done/progress.total*100}/>{(t.steps||[]).map(step=><Pressable key={step.id} accessibilityRole="checkbox" accessibilityState={{checked:step.done}} accessibilityLabel={step.title} onPress={()=>update(d=>({...d,tasks:d.tasks.map(x=>x.id===t.id?toggleStep(x,step.id):x)}))} style={{minHeight:44,flexDirection:'row',alignItems:'center',gap:10}}><Text style={{color:c.green,fontSize:20}}>{step.done?'✓':'○'}</Text><Text style={{flex:1,color:c.ink,textDecorationLine:step.done?'line-through':'none'}}>{step.title}</Text></Pressable>)}</View>}</View>;})}</View>:<Empty text={data.tasks.length?"No assignments match these filters.":"No assignments yet."}/>}
+
     </>}
     {activePage==='subjects'&&<>
       <Heading title="My subjects 🌸" subtitle="A little garden of things to learn"/>
@@ -211,7 +253,7 @@ export default function App() {
       <View style={{alignItems:'center',marginVertical:20}}><View style={{width:270,height:270,alignItems:'center',justifyContent:'center'}}><Svg width={270} height={270} style={StyleSheet.absoluteFill}><Circle cx={135} cy={135} r={122} fill="none" stroke={c.pale} strokeWidth={12}/><Circle cx={135} cy={135} r={122} fill="none" stroke={c.purple} strokeWidth={12} strokeDasharray={`${seconds/timerTotal*767} 767`} rotation={-90} origin="135,135" strokeLinecap="round"/></Svg><Text style={{fontSize:54,color:c.ink,fontWeight:'700',fontVariant:['tabular-nums']}}>{String(Math.floor(seconds/60)).padStart(2,'0')}:{String(seconds%60).padStart(2,'0')}</Text><Image source={BOOKWORM} style={{width:105,height:100}} resizeMode="contain"/></View></View>
       <SubjectPicker value={timer?.subjectId||focusSubject} onChange={id=>{if(timer)say('Finish or reset your current timer to change subjects.');else setFocusSubject(id);}}/>
       <Button label={!timer?'▶ Start focus':timer.running?'Ⅱ Pause':'▶ Resume'} onPress={toggleTimer}/>
-      {timer&&<Button secondary label="Reset timer" onPress={()=>Alert.alert('Reset timer?','This unfinished session will not be counted.',[{text:'Keep going'},{text:'Reset',onPress:()=>{update(d=>({...d,timer:null}));Native?.cancelReminder('focus');}}])}/>}
+      {timer&&<Button secondary label="Reset timer" onPress={()=>Alert.alert('Reset timer?','This unfinished session will not be counted.',[{text:'Keep going'},{text:'Reset',onPress:()=>{update(d=>({...d,timer:null}));}}])}/>}
       <View style={s.row}><View style={[cardStyle,{flex:1}]}><Text style={muted}>Pomodoro</Text><Text style={[s.bodyBold,{color:c.ink,marginTop:8}]}>{data.settings.focus} min</Text></View><View style={[cardStyle,{flex:1}]}><Text style={muted}>Short break</Text><Text style={[s.bodyBold,{color:c.ink,marginTop:8}]}>{data.settings.break} min</Text></View></View>
       <Pressable onPress={()=>setPage('settings')} style={{alignSelf:'center',padding:12}}><Text style={{color:c.purple}}>Customize your timer ›</Text></Pressable>
     </>}
@@ -239,10 +281,10 @@ export default function App() {
     </>}
     {activePage==='settings'&&<>
       <Heading title="Make it yours" subtitle="Your planner, your pace"/>
-      <View style={cardStyle}><Text style={[s.label,{color:c.ink}]}>Your name</Text><TextInput accessibilityLabel="Your name" value={data.settings.name} maxLength={40} onChangeText={name=>update(d=>({...d,settings:{...d.settings,name}}))} style={[s.input,{color:c.ink,backgroundColor:c.bg,borderColor:c.line}]}/><View style={[s.row,{justifyContent:'space-between',marginTop:16}]}><Text style={[s.bodyBold,{color:c.ink}]}>Moonlight mode</Text><Switch value={data.settings.dark} onValueChange={darkMode=>update(d=>({...d,settings:{...d.settings,dark:darkMode}}))} trackColor={{false:c.line,true:c.purple}}/></View><View style={[s.row,{justifyContent:'space-between',marginTop:16}]}><Text style={[s.bodyBold,{color:c.ink}]}>Local reminders</Text><Switch value={!!data.settings.reminders} onValueChange={enableReminders} trackColor={{false:c.line,true:c.purple}}/></View><Text style={[muted,{fontSize:12,marginTop:6}]}>Study session and timer alerts. No internet needed.</Text></View>
+      <View style={cardStyle}><Text style={[s.label,{color:c.ink}]}>Your name</Text><TextInput accessibilityLabel="Your name" value={data.settings.name} maxLength={40} onChangeText={name=>update(d=>({...d,settings:{...d.settings,name}}))} style={[s.input,{color:c.ink,backgroundColor:c.bg,borderColor:c.line}]}/><View style={[s.row,{justifyContent:'space-between',marginTop:16}]}><Text style={[s.bodyBold,{color:c.ink}]}>Moonlight mode</Text><Switch value={data.settings.dark} onValueChange={darkMode=>update(d=>({...d,settings:{...d.settings,dark:darkMode}}))} trackColor={{false:c.line,true:c.purple}}/></View><View style={[s.row,{justifyContent:'space-between',marginTop:16}]}><Text style={[s.bodyBold,{color:c.ink}]}>Local reminders</Text><Switch value={!!data.settings.reminders} onValueChange={enableReminders} trackColor={{false:c.line,true:c.purple}}/></View><Text style={[muted,{fontSize:12,marginTop:6}]}>Session, assignment, exam and timer alerts. No internet needed.</Text></View>
       <View style={cardStyle}>{[['focus','Focus minutes',5,180,5],['break','Break minutes',1,60,1],['goal','Weekly goal (hours)',1,100,1]].map(([key,label,min,max,step])=><View key={key} style={[s.row,{justifyContent:'space-between',paddingVertical:10}]}><Text style={[muted,{color:c.ink,flex:1}]}>{label}</Text><Pressable accessibilityLabel={`Decrease ${label}`} style={[s.stepper,{backgroundColor:c.pale}]} onPress={()=>update(d=>({...d,settings:{...d.settings,[key]:Math.max(min,d.settings[key]-step)}}))}><Text style={{color:c.ink,fontSize:23}}>−</Text></Pressable><Text style={[s.bodyBold,{color:c.ink,width:32,textAlign:'center'}]}>{data.settings[key]}</Text><Pressable accessibilityLabel={`Increase ${label}`} style={[s.stepper,{backgroundColor:c.pale}]} onPress={()=>update(d=>({...d,settings:{...d.settings,[key]:Math.min(max,d.settings[key]+step)}}))}><Text style={{color:c.ink,fontSize:23}}>+</Text></Pressable></View>)}</View>
       <View style={cardStyle}><Text style={[s.bodyBold,{color:c.ink,marginBottom:12}]}>Keep a little backup</Text><Text style={[muted,{lineHeight:21,marginBottom:15}]}>Everything lives on this device. Save a backup file before uninstalling or changing phones.</Text><Button label="Export backup" icon="download" onPress={backup}/><Button secondary label="Restore backup" onPress={restore}/></View>
-      <Text style={[muted,{textAlign:'center',lineHeight:22}]}>Study Bloom · 1.3.0{"\n"}No accounts. No ads. Always offline. ♡</Text>
+      <Text style={[muted,{textAlign:'center',lineHeight:22}]}>Study Bloom · 1.4.0{"\n"}No accounts. No ads. Always offline. ♡</Text>
     </>}
     </ScrollView>
     <View style={[s.nav,{backgroundColor:c.card,borderColor:c.line}]}>{[['home','home','Home'],['planner','calendar','Planner'],['focus','timer','Focus'],['progress','chart','Progress']].map(([id,icon,label])=><Pressable key={id} accessibilityRole="tab" accessibilityState={{selected:!page&&tab===id}} onPress={()=>{setPage(null);setTab(id);}} style={s.navItem}><View style={[s.navIcon,{backgroundColor:!page&&tab===id?c.pale:'transparent'}]}><Icon name={icon} color={!page&&tab===id?c.purple:c.muted}/></View><Text style={{fontSize:11,marginTop:4,color:!page&&tab===id?c.purple:c.muted,fontWeight:!page&&tab===id?'700':'400'}}>{label}</Text></Pressable>)}</View>
@@ -252,6 +294,9 @@ export default function App() {
       {form==='subject'&&<SubjectAppearanceFields draft={draft} onChange={changeAppearance} onMore={type=>{Keyboard.dismiss();setAppearance(type);}} c={c}/>}
       {['session','exam','task'].includes(form)&&<><Text style={[s.label,{color:c.ink}]}>{form==='task'?'Due date':'Date'}</Text><Pressable accessibilityRole="button" accessibilityLabel="Choose date" onPress={chooseDate} style={({pressed})=>[s.input,s.row,{justifyContent:'space-between',backgroundColor:pressed?c.pale:c.card,borderColor:c.line}]}><Text style={{color:c.ink,fontSize:15}}>{dateLabel(form==='task'?draft.due:draft.date)}</Text><Icon name="calendar" color={c.purple}/></Pressable></>}
       {form==='session'&&<><Text style={[s.label,{color:c.ink}]}>Time &amp; length</Text><View style={[s.row,{gap:10}]}><Pressable accessibilityRole="button" accessibilityLabel="Choose start time" onPress={chooseTime} style={({pressed})=>[s.input,{flex:1,backgroundColor:pressed?c.pale:c.card,borderColor:c.line}]}><View style={[s.row,{gap:6}]}><Icon name="timer" color={c.purple} size={18}/><Text style={[muted,{fontSize:11}]}>Start time</Text></View><Text style={[s.bodyBold,{color:c.ink,marginTop:7}]}>{timeLabel(draft.time)}</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Choose duration" onPress={chooseDuration} style={({pressed})=>[s.input,{flex:1,backgroundColor:pressed?c.pale:c.card,borderColor:c.line}]}><Text style={[muted,{fontSize:11}]}>Hours &amp; minutes</Text><Text style={[s.bodyBold,{color:c.ink,marginTop:10}]}>{durationLabel(draft.duration)}</Text></Pressable></View></>}
+      {form==='session'&&!draft.id&&<RepeatFields date={draft.date} value={repeat} onChange={setRepeat} c={c}/>}
+      {['task','exam'].includes(form)&&<ReminderFields draft={draft} onChange={changes=>setDraft(d=>({...d,...changes}))} onTime={async()=>{Keyboard.dismiss();try{const time=await Native.pickTime(draft.reminderTime||'09:00');if(time&&validTime(time))setDraft(d=>({...d,reminderTime:time}));}catch{say('Could not open the reminder clock.');}}} c={c}/>}
+      {form==='task'&&<TaskSteps steps={draft.steps||[]} onChange={steps=>setDraft(d=>({...d,steps,done:steps.length?steps.every(step=>step.done):d.done}))} c={c}/>}
       {form==='task'&&<><Text style={[s.label,{color:c.ink}]}>Priority</Text><View style={s.row}>{['Low','Medium','High'].map(priority=><Pressable key={priority} onPress={()=>setDraft(d=>({...d,priority}))} style={[s.chip,{backgroundColor:draft.priority===priority?c.purple:c.card,borderColor:c.line}]}><Text style={{color:draft.priority===priority?'#fff':c.ink}}>{priority}</Text></Pressable>)}</View></>}
       {form==='note'&&<><Text style={[s.label,{color:c.ink}]}>Note</Text><TextInput accessibilityLabel="Note body" multiline value={draft.body||''} onChangeText={body=>setDraft(d=>({...d,body}))} maxLength={20000} placeholder="A thought worth keeping…" placeholderTextColor={c.muted} style={[s.input,{color:c.ink,backgroundColor:c.card,borderColor:c.line,minHeight:200,textAlignVertical:'top'}]}/></>}
       <Button label="Save little plan" icon="check" onPress={saveForm}/>{draft.id&&<Pressable onPress={()=>remove(form,draft)} style={{alignSelf:'center',padding:15}}><Text style={{color:'#C57B86'}}>Delete {form}</Text></Pressable>}

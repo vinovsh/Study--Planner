@@ -3,7 +3,7 @@ on:
   push:
     branches: [study-planer]
   pull_request:
-    branches: [main]
+    branches: [main, study-planer]
   workflow_dispatch:
 permissions:
   contents: read

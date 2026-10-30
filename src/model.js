@@ -55,6 +55,16 @@ function validateBackup(value) {
   for (const s of value.subjects) if (!text(s.name) || !s.name.trim() || !COLORS.includes(s.color) || !SUBJECT_ICONS.some(option=>option.value===s.icon)) fail();
   for (const key of ['sessions', 'tasks', 'cards', 'notes', 'exams']) for (const x of value[key]) {
     if (!subjects.has(x.subjectId)) fail();
+    if (['tasks','exams'].includes(key) && x.remindDays !== undefined && x.remindDays !== null && (![0,1,3,7].includes(x.remindDays) || !validTime(x.reminderTime))) fail();
+    if (key === 'tasks' && x.steps !== undefined) {
+      if (!Array.isArray(x.steps) || x.steps.length > 50) fail();
+      const ids = new Set();
+      for (const step of x.steps) {
+        if (!step || typeof step.id !== 'string' || !step.id || ids.has(step.id) || !text(step.title) || !step.title.trim() || step.title.length > 200 || typeof step.done !== 'boolean') fail();
+        ids.add(step.id);
+      }
+      if (x.steps.length && x.done !== x.steps.every(step=>step.done)) fail();
+    }
     if (key === 'sessions' && (!text(x.title) || !validDate(x.date) || !validTime(x.time) || !Number.isFinite(x.duration) || x.duration < 5 || x.duration > 240 || typeof x.done !== 'boolean')) fail();
     if (key === 'tasks' && (!text(x.title) || !validDate(x.due) || !['Low','Medium','High'].includes(x.priority) || typeof x.done !== 'boolean')) fail();
     if (key === 'cards' && (!text(x.question) || !text(x.answer) || !validDate(x.due) || !Number.isFinite(x.interval) || x.interval < 0 || x.interval > 180)) fail();
@@ -64,4 +74,11 @@ function validateBackup(value) {
   for (const l of value.logs) if (!text(l.subjectId) || !validDate(l.date) || !Number.isFinite(l.minutes) || l.minutes <= 0 || l.minutes > 1440) fail();
   return {...value, timer: null};
 }
-module.exports = {COLORS, uid, dateKey, validDate, validTime, initialState, reviewCard, weekDates, remainingSeconds, streak, validateBackup};
+function hydratePlanner(value) {
+  const state=validateBackup(value);
+  const timer=value.timer;
+  // Portable backups omit active timers; device reloads preserve valid ones.
+  if(timer && typeof timer.id==='string' && ['focus','break'].includes(timer.mode) && typeof timer.running==='boolean' && Number.isFinite(timer.total) && timer.total>=60 && timer.total<=10800 && Number.isFinite(timer.remaining) && timer.remaining>=0 && timer.remaining<=timer.total && Number.isFinite(timer.endsAt) && (timer.mode==='break'||state.subjects.some(s=>s.id===timer.subjectId))) state.timer=timer;
+  return state;
+}
+module.exports = {COLORS, uid, dateKey, validDate, validTime, initialState, reviewCard, weekDates, remainingSeconds, streak, validateBackup, hydratePlanner};

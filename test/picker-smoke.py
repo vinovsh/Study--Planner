@@ -50,7 +50,9 @@ try:
     set_clock('10','45');find('10:45 AM')
     tap('Choose duration');find('android:id/radial_picker',True);screenshot('07-duration-clock')
     set_clock('1','15');find('1 hr 15 min');screenshot('08-picker-values')
-    tap('Save little plan');find('Picker practice · 75 min');find('10:45')
+    # New scheduling validation detects the seeded Math session at 11:00.
+    tap('Save little plan');find('Study sessions overlap');tap('Keep both')
+    find('Picker practice · 75 min');find('10:45')
     adb('shell','am','force-stop','com.studybloom');adb('shell','am','start','-n','com.studybloom/.MainActivity');time.sleep(2)
     tap('Planner');find('Picker practice · 75 min');find('10:45');screenshot('09-saved-session')
     logs=adb('logcat','-d');(out/'picker-logcat.txt').write_text(logs)
